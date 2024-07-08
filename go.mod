@@ -1,4 +1,4 @@
-// module
+module github.com/gw31415/pgautositemap
 
 go 1.22.4
 

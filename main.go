@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/gw31415/pgautositemap/sitemap"
 	"github.com/robfig/cron/v3"
 )
 
@@ -16,6 +17,9 @@ var (
 
 	// Discordのトークン
 	DISCORD_TOKEN = os.Getenv("DISCORD_TOKEN")
+
+	// サイトマップカテゴリID
+	SITEMAP_CATEGORY_ID = os.Getenv("SITEMAP_CATEGORY_ID")
 
 	// DiscordサーバーID
 	GUILD_ID = os.Getenv("GUILD_ID")
@@ -36,10 +40,10 @@ func main() {
 	// Discordセッションの初期化
 	discord, err := discordgo.New("Bot " + DISCORD_TOKEN)
 	if err != nil {
-		slog.Error("Error creating Discord session:", err)
+		slog.Error("Error creating Discord session:", "err", err)
 		return
 	}
-	discord.Identify.Intents = discordgo.IntentsGuildMembers | discordgo.IntentsGuilds
+	discord.Identify.Intents = discordgo.IntentsGuilds
 
 	// cronの初期化
 	cr := cron.New()
@@ -60,11 +64,19 @@ func main() {
 		}
 	})
 
+	// サイトマップマネージャーの初期化
+	sm := sitemap.NewSitemapManager(GUILD_ID, SITEMAP_CATEGORY_ID)
+	discord.AddHandler(sm.GuildCreateHandler)
+	discord.AddHandler(sm.GuildUpdateHandler)
+	discord.AddHandler(sm.ChannelCreateHandler)
+	discord.AddHandler(sm.ChannelUpdateHandler)
+	discord.AddHandler(sm.ChannelDeleteHandler)
+
 	// Discordセッションの開始
 	slog.Info("Opening discord connection")
 	err = discord.Open()
 	if err != nil {
-		slog.Error("Error opening discord connection:", err)
+		slog.Error("Error opening discord connection:", "err", err)
 		return
 	}
 	defer discord.Close()
