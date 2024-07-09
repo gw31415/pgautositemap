@@ -309,6 +309,12 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 	// Positionの昇順に並べ替え
 	for _, chs := range tree {
 		slices.SortFunc(chs, func(a, b *discordgo.Channel) int {
+			if isVoice(a) && !isVoice(b) {
+				return 1
+			}
+			if !isVoice(a) && isVoice(b) {
+				return -1
+			}
 			return a.Position - b.Position
 		})
 	}
@@ -441,6 +447,10 @@ func (m *smManager) ChannelDeleteHandler(s *discordgo.Session, ch *discordgo.Cha
 	m.Handler(s, []string{ch.Channel.ID})
 }
 
+func (m *smManager) ReadyHandler(s *discordgo.Session, r *discordgo.Ready) {
+	m.Handler(s, nil)
+}
+
 func (m *smManager) GuildCreateHandler(s *discordgo.Session, g *discordgo.GuildCreate) {
 	m.Handler(s, nil)
 }
@@ -463,4 +473,8 @@ func getHash(a any) (string, error) {
 	h := fnv.New32a()
 	h.Write(b.Bytes())
 	return fmt.Sprintf("%x", h.Sum32())[:hashLength], nil
+}
+
+func isVoice(ch *discordgo.Channel) bool {
+	return ch.Type == discordgo.ChannelTypeGuildVoice || ch.Type == discordgo.ChannelTypeGuildStageVoice
 }
