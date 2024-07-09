@@ -181,8 +181,8 @@ func NewSitemapManager(guildID, sitemapCategoryID string) SitemapManager {
 	}
 }
 
-func (m *smManager) createSmName(ch *discordgo.Channel) string {
-	lower := utils.FilterAndReplaceSymbols(ch.Name)
+func (m *smManager) createSmName(cateCh *discordgo.Channel) string {
+	lower := utils.FilterAndReplaceSymbols(cateCh.Name)
 	return fmt.Sprintf("sm-%s", lower)
 }
 
@@ -349,9 +349,11 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 					topic = topic[:idx]
 				}
 				topic = strings.TrimSpace(topic)
-				if len(topic) > 24 {
-					topic = topic[:24] + "……"
-				} else if len(topic) == 0 {
+				topicrunes := []rune(topic)
+				if len(topicrunes) > 24 {
+					topic = string(topicrunes[:24]) + "……"
+				}
+				if len(topic) == 0 {
 					topic = ""
 				} else {
 					topic = fmt.Sprintf("    - %s\n", topic)
@@ -384,6 +386,7 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 
 		// できておいてほしいチャンネル・今のチャンネルの2つから作成、更新、削除のアクションを作成
 		crt, msg, del := utils.AXorB(smNames, smOldNames)
+		slog.Debug("Sitemap", "create", crt, "msg", msg, "del", del)
 		actions = append(actions, utils.Map(crt, func(name string) *action {
 			i := slices.Index(smNames, name)
 			position := smPositionsDelta[i]
@@ -460,6 +463,7 @@ func (m *smManager) ManuallyUpdate(s *discordgo.Session) {
 }
 
 const hashLength = 6
+const version = "1"
 
 func getHash(a any) (string, error) {
 	var b bytes.Buffer
@@ -468,6 +472,7 @@ func getHash(a any) (string, error) {
 		return "", errors.New("Failed to encode")
 	}
 	h := fnv.New32a()
+	h.Write([]byte(version))
 	h.Write(b.Bytes())
 	return fmt.Sprintf("%x", h.Sum32())[:hashLength], nil
 }

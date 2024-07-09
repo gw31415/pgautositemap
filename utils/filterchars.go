@@ -21,5 +21,15 @@ func FilterAndReplaceSymbols(input string) string {
 			result += strChar
 		}
 	}
+
+	// 冒頭のハイフンを全て削除
+	for strings.HasPrefix(result, "-") {
+		result = strings.TrimPrefix(result, "-")
+	}
+	// 末尾のハイフンを全て削除
+	for strings.HasSuffix(result, "-") {
+		result = strings.TrimSuffix(result, "-")
+	}
+
 	return strings.ToLower(result)
 }
