@@ -16,6 +16,12 @@ import (
 	"github.com/gw31415/pgautositemap/utils"
 )
 
+const (
+	hashLength  = 6
+	version     = "1"
+	topicLength = 50
+)
+
 type SitemapManager interface {
 	ChannelCreateHandler(s *discordgo.Session, ch *discordgo.ChannelCreate)
 	ChannelUpdateHandler(s *discordgo.Session, ch *discordgo.ChannelUpdate)
@@ -348,8 +354,8 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 				}
 				topic = strings.TrimSpace(topic)
 				topicrunes := []rune(topic)
-				if len(topicrunes) > 24 {
-					topic = string(topicrunes[:24]) + "……"
+				if len(topicrunes) > topicLength {
+					topic = string(topicrunes[:topicLength]) + "……"
 				}
 				if len(topic) == 0 {
 					topic = ""
@@ -466,9 +472,6 @@ func (m *smManager) GuildUpdateHandler(s *discordgo.Session, g *discordgo.GuildU
 func (m *smManager) ManuallyUpdate(s *discordgo.Session) {
 	m.Handler(s, nil)
 }
-
-const hashLength = 6
-const version = "1"
 
 func getHash(a any) (string, error) {
 	var b bytes.Buffer
