@@ -17,6 +17,7 @@ import (
 )
 
 type SitemapManager interface {
+	ReadyHandler(s *discordgo.Session, r *discordgo.Ready)
 	ChannelCreateHandler(s *discordgo.Session, ch *discordgo.ChannelCreate)
 	ChannelUpdateHandler(s *discordgo.Session, ch *discordgo.ChannelUpdate)
 	ChannelDeleteHandler(s *discordgo.Session, ch *discordgo.ChannelDelete)
