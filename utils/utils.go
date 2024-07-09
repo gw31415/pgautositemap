@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"regexp"
 	"slices"
 )
 
@@ -62,4 +63,8 @@ func Filter[T any](arr []T, f func(T) bool) []T {
 		}
 	}
 	return r
+}
+
+func GetMentionRegex() *regexp.Regexp {
+	return regexp.MustCompile("<[@#&]?\\d+>|<\\/\\w+:\\d+>")
 }

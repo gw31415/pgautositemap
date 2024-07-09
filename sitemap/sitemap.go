@@ -17,7 +17,6 @@ import (
 )
 
 type SitemapManager interface {
-	ReadyHandler(s *discordgo.Session, r *discordgo.Ready)
 	ChannelCreateHandler(s *discordgo.Session, ch *discordgo.ChannelCreate)
 	ChannelUpdateHandler(s *discordgo.Session, ch *discordgo.ChannelUpdate)
 	ChannelDeleteHandler(s *discordgo.Session, ch *discordgo.ChannelDelete)
@@ -341,7 +340,22 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 			link := fmt.Sprintf("- <#%s>\n", child.ID)
 			topic := ""
 			if child.Topic != "" {
-				topic = fmt.Sprintf("    - %s\n", child.Topic)
+				topic = child.Topic
+				// メンションの削除
+				regex := utils.GetMentionRegex()
+				topic = regex.ReplaceAllString(topic, "")
+
+				if idx := strings.Index(topic, "\n"); idx != -1 {
+					topic = topic[:idx]
+				}
+				topic = strings.TrimSpace(topic)
+				if len(topic) > 24 {
+					topic = topic[:24] + "……"
+				} else if len(topic) == 0 {
+					topic = ""
+				} else {
+					topic = fmt.Sprintf("    - %s\n", topic)
+				}
 			}
 			sm += link + topic
 		}
@@ -432,10 +446,6 @@ func (m *smManager) ChannelUpdateHandler(s *discordgo.Session, ch *discordgo.Cha
 
 func (m *smManager) ChannelDeleteHandler(s *discordgo.Session, ch *discordgo.ChannelDelete) {
 	m.Handler(s, []string{ch.Channel.ID})
-}
-
-func (m *smManager) ReadyHandler(s *discordgo.Session, r *discordgo.Ready) {
-	m.Handler(s, nil)
 }
 
 func (m *smManager) GuildCreateHandler(s *discordgo.Session, g *discordgo.GuildCreate) {

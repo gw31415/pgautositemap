@@ -69,7 +69,6 @@ func main() {
 
 	// サイトマップマネージャーの初期化
 	sm := sitemap.NewSitemapManager(GUILD_ID, SITEMAP_CATEGORY_ID)
-	discord.AddHandler(sm.ReadyHandler)
 	discord.AddHandler(sm.GuildCreateHandler)
 	discord.AddHandler(sm.GuildUpdateHandler)
 	discord.AddHandler(sm.ChannelCreateHandler)
