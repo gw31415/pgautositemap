@@ -180,7 +180,7 @@ func NewSitemapManager(guildID, sitemapCategoryID string, whiteCates []string) S
 		guildID:           guildID,
 		sitemapCategoryID: sitemapCategoryID,
 		id2RelatedName:    make(map[string]string),
-		whiteCates: 	  whiteCates,
+		whiteCates:        whiteCates,
 	}
 }
 
@@ -333,12 +333,7 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 
 		// サイトマップのコンテンツを作成
 		children := tree[cate.ID]
-		sm, err := getHash(children)
-		if err != nil {
-			slog.Error("Failed to get hash", "error", err)
-			return
-		}
-		sm += "\n"
+		sm := ""
 		for _, child := range children {
 			link := fmt.Sprintf("- <#%s>\n", child.ID)
 			topic := ""
@@ -364,7 +359,14 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 			}
 			sm += link + topic
 		}
-		smContents[m.createSmName(cate)] = sm[:len(sm)-1] // INFO: 最後の改行を削除している
+		sm = sm[:len(sm)-1] // INFO: 最後の改行を削除している
+		hash, err := getHash(sm)
+		if err != nil {
+			slog.Error("Failed to get hash", "error", err)
+			return
+		}
+		sm = fmt.Sprintf("%s\n%s", hash, sm)
+		smContents[m.createSmName(cate)] = sm
 	}
 
 	actions := []*action{}
