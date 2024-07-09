@@ -55,7 +55,7 @@ type smManager struct {
 	whiteCates []string
 }
 
-func (m *smManager) Handler(s *discordgo.Session, target []string) {
+func (m *smManager) handler(s *discordgo.Session, target []string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -451,26 +451,26 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 }
 
 func (m *smManager) ChannelCreateHandler(s *discordgo.Session, ch *discordgo.ChannelCreate) {
-	m.Handler(s, []string{ch.Channel.ID})
+	m.handler(s, []string{ch.Channel.ID})
 }
 
 func (m *smManager) ChannelUpdateHandler(s *discordgo.Session, ch *discordgo.ChannelUpdate) {
-	m.Handler(s, []string{ch.Channel.ID})
+	m.handler(s, []string{ch.Channel.ID})
 }
 
 func (m *smManager) ChannelDeleteHandler(s *discordgo.Session, ch *discordgo.ChannelDelete) {
-	m.Handler(s, []string{ch.Channel.ID})
+	m.handler(s, []string{ch.Channel.ID})
 }
 
 func (m *smManager) GuildCreateHandler(s *discordgo.Session, g *discordgo.GuildCreate) {
-	m.Handler(s, nil)
+	m.handler(s, nil)
 }
 
 func (m *smManager) GuildUpdateHandler(s *discordgo.Session, g *discordgo.GuildUpdate) {
-	m.Handler(s, nil)
+	m.handler(s, nil)
 }
 func (m *smManager) ManuallyUpdate(s *discordgo.Session) {
-	m.Handler(s, nil)
+	m.handler(s, nil)
 }
 
 func getHash(a any) (string, error) {
