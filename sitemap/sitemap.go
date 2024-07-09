@@ -22,6 +22,7 @@ type SitemapManager interface {
 	ChannelDeleteHandler(s *discordgo.Session, ch *discordgo.ChannelDelete)
 	GuildCreateHandler(s *discordgo.Session, g *discordgo.GuildCreate)
 	GuildUpdateHandler(s *discordgo.Session, g *discordgo.GuildUpdate)
+	ManuallyUpdate(s *discordgo.Session)
 }
 
 type channelData struct {
@@ -40,11 +41,13 @@ type smManager struct {
 	guildID string
 	// サイトマップカテゴリID
 	sitemapCategoryID string
-	// サイトマップのキャッシュ
-	smOlds []string
+	// サイトマップIDのキャッシュ
+	smOldsCache []string
+	// チャンネルIDから、関連するサイトマップ名のマップ
+	id2RelatedName map[string]string
 }
 
-func (m *smManager) handler(s *discordgo.Session, target []string) {
+func (m *smManager) Handler(s *discordgo.Session, target []string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -138,7 +141,6 @@ func (a *action) do(s *discordgo.Session, guildID string, sitemapCategoryID stri
 		// メッセージを最新以外全て削除
 		for {
 			ms, err := s.ChannelMessages(a.id, 100, lastID, "", "")
-			// ms, err := s.ChannelMessages(a.id, 100, "", "", "")
 			if err != nil {
 				slog.Error("Failed to get messages", "error", err)
 				break
@@ -157,7 +159,8 @@ func (a *action) do(s *discordgo.Session, guildID string, sitemapCategoryID stri
 			}
 		}
 
-		if lastMsg == nil || lastMsg.Content[:hashLength] != a.content[:hashLength] {
+		if lastMsg == nil || len(lastMsg.Content) < hashLength ||
+			lastMsg.Content[:hashLength] != a.content[:hashLength] {
 			// 最新のメッセージが存在しないか、内容のハッシュが異なる場合
 			// メッセージを送信
 			s.ChannelMessageDelete(a.id, lastID)
@@ -174,6 +177,7 @@ func NewSitemapManager(guildID, sitemapCategoryID string) SitemapManager {
 	return &smManager{
 		guildID:           guildID,
 		sitemapCategoryID: sitemapCategoryID,
+		id2RelatedName:    make(map[string]string),
 	}
 }
 
@@ -182,16 +186,61 @@ func (m *smManager) createSmName(ch *discordgo.Channel) string {
 	return fmt.Sprintf("sm-%s", lower)
 }
 
-// サーバーのロール情報を同期
-func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
-	onlySmChs := false
+// サイトマップカテゴリのみの場合かどうか
+// m.smOldsに依存する
+func (m *smManager) onlySitemapChannels(targets []string) bool {
 	for _, target := range targets {
-		if target == m.sitemapCategoryID || slices.Contains(m.smOlds, target) {
-			onlySmChs = true
-			break
+		if target == m.sitemapCategoryID || slices.Contains(m.smOldsCache, target) {
+			return true
 		}
 	}
-	if onlySmChs {
+	return false
+}
+
+func (m *smManager) getRelatedSmNames(s *discordgo.Session, targets []string) (relatedNames []string) {
+	failedIDs := []string{}
+	for _, target := range targets {
+		if name, ok := m.id2RelatedName[target]; ok {
+			relatedNames = append(relatedNames, name)
+		} else {
+			failedIDs = append(failedIDs, target)
+		}
+	}
+	if len(failedIDs) > 0 {
+		// このメソッドは実装上必ずsmOldsCacheが更新されてから呼びだされる
+		smData := map[string]string{}
+		for _, id := range m.smOldsCache {
+			ch, err := s.Channel(id)
+			if err != nil {
+				// 取得できるだけのデータでフィルターに引っかかったらいいくらいなので
+				continue
+			}
+			lastMsgs, err := s.ChannelMessages(ch.ID, 1, "", "", "")
+			if err != nil || len(lastMsgs) == 0 {
+				continue
+			}
+			lastMsg := lastMsgs[0]
+			smData[ch.ID] = lastMsg.Content
+		}
+		for _, id := range failedIDs {
+			// 未知のIDの場合は削除されたチャンネルの可能性
+			for sid, content := range smData {
+				// サイトマップの本文にIDが文字列として含まれている場合は関連するサイトマップ名とみなす
+				if strings.Contains(content, id) {
+					relatedNames = append(relatedNames, m.id2RelatedName[sid])
+					break
+				}
+			}
+		}
+	}
+	return
+}
+
+// サーバーのロール情報を同期
+func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
+
+	// サイトマップカテゴリのみの場合の早期検出(APIの呼び出しを省略)
+	if m.onlySitemapChannels(targets) {
 		return
 	}
 
@@ -204,6 +253,7 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 	var root *discordgo.Channel = nil
 	// 既にサイトマップとして使われているチャンネルを取得
 	smOlds := []*discordgo.Channel{}
+	m.smOldsCache = []string{}
 	// サイトマップにするカテゴリのチャンネルIDを取得
 	cateChs := []*discordgo.Channel{}
 	for _, ch := range channels {
@@ -211,13 +261,17 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 			root = ch
 		} else if ch.ParentID == m.sitemapCategoryID {
 			smOlds = append(smOlds, ch)
-			m.smOlds = append(m.smOlds, ch.ID)
+			m.smOldsCache = append(m.smOldsCache, ch.ID)
 		} else if ch.Type == discordgo.ChannelTypeGuildCategory {
 			cateChs = append(cateChs, ch)
 		}
 	}
 	if root == nil {
 		slog.Error("Failed to get sitemap category")
+		return
+	}
+	// サイトマップカテゴリのみの場合の正確な検出
+	if m.onlySitemapChannels(targets) {
 		return
 	}
 	slices.SortFunc(cateChs, func(a, b *discordgo.Channel) int {
@@ -253,15 +307,14 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 	// サイトマップのメッセージの作成
 	// Name string -> Content string
 	smNames := []string{}
-	id2RelatedName := make(map[string]string)
 	smContents := make(map[string]string)
 	for _, cate := range cateChs {
 
 		// チャンネル名の重複チェック
 		name := m.createSmName(cate)
-		id2RelatedName[cate.ID] = name
+		m.id2RelatedName[cate.ID] = name
 		for _, ch := range tree[cate.ID] {
-			id2RelatedName[ch.ID] = name
+			m.id2RelatedName[ch.ID] = name
 		}
 		if slices.Contains(smNames, name) {
 			slog.Error("Duplicate sitemap channel name", "name", name)
@@ -278,9 +331,12 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 		}
 		sm += "\n"
 		for _, child := range children {
-			link := fmt.Sprintf("<#%s>", child.ID)
-			topic := child.Topic
-			sm += fmt.Sprintf("- %s : %s\n", link, topic)
+			link := fmt.Sprintf("- <#%s>\n", child.ID)
+			topic := ""
+			if child.Topic != "" {
+				topic = fmt.Sprintf("    - %s\n", child.Topic)
+			}
+			sm += link + topic
 		}
 		smContents[m.createSmName(cate)] = sm[:len(sm)-1] // INFO: 最後の改行を削除している
 	}
@@ -344,16 +400,11 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 		}
 	}
 	if targets != nil {
-		relatedNames := make(map[string]bool)
-		for _, target := range targets {
-			if name, ok := id2RelatedName[target]; ok {
-				relatedNames[name] = true
-			}
-		}
+		relatedNames := m.getRelatedSmNames(s, targets)
 		// 更新のアクションを絞り込む
 		actions = utils.Filter(actions, func(a *action) bool {
-			if a.actionType == actionTypeChannelCreate || a.actionType == actionTypeRefreshMessage {
-				return relatedNames[a.name]
+			if a.actionType == actionTypeChannelCreate { // || a.actionType == actionTypeRefreshMessage {
+				return slices.Contains(relatedNames, a.name)
 			}
 			return true
 		})
@@ -365,23 +416,26 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 }
 
 func (m *smManager) ChannelCreateHandler(s *discordgo.Session, ch *discordgo.ChannelCreate) {
-	m.handler(s, []string{ch.Channel.ID})
+	m.Handler(s, []string{ch.Channel.ID})
 }
 
 func (m *smManager) ChannelUpdateHandler(s *discordgo.Session, ch *discordgo.ChannelUpdate) {
-	m.handler(s, []string{ch.Channel.ID})
+	m.Handler(s, []string{ch.Channel.ID})
 }
 
 func (m *smManager) ChannelDeleteHandler(s *discordgo.Session, ch *discordgo.ChannelDelete) {
-	m.handler(s, []string{ch.Channel.ID})
+	m.Handler(s, []string{ch.Channel.ID})
 }
 
 func (m *smManager) GuildCreateHandler(s *discordgo.Session, g *discordgo.GuildCreate) {
-	m.handler(s, nil)
+	m.Handler(s, nil)
 }
 
 func (m *smManager) GuildUpdateHandler(s *discordgo.Session, g *discordgo.GuildUpdate) {
-	m.handler(s, nil)
+	m.Handler(s, nil)
+}
+func (m *smManager) ManuallyUpdate(s *discordgo.Session) {
+	m.Handler(s, nil)
 }
 
 const hashLength = 6

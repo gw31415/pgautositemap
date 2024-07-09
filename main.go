@@ -15,14 +15,17 @@ var (
 	// デバッグモード
 	DEBUG_MODE = len(os.Getenv("DEBUG_MODE")) > 0
 
+	// DiscordサーバーID
+	GUILD_ID = os.Getenv("GUILD_ID")
+
 	// Discordのトークン
 	DISCORD_TOKEN = os.Getenv("DISCORD_TOKEN")
 
 	// サイトマップカテゴリID
 	SITEMAP_CATEGORY_ID = os.Getenv("SITEMAP_CATEGORY_ID")
 
-	// DiscordサーバーID
-	GUILD_ID = os.Getenv("GUILD_ID")
+	// 差分だけでなく、定期的にサイトマップを強制更新するためのcron設定
+	SITEMAP_REFRESHING_CRON = os.Getenv("SITEMAP_REFRESHING_CRON")
 )
 
 func main() {
@@ -71,6 +74,14 @@ func main() {
 	discord.AddHandler(sm.ChannelCreateHandler)
 	discord.AddHandler(sm.ChannelUpdateHandler)
 	discord.AddHandler(sm.ChannelDeleteHandler)
+	_, err = cr.AddFunc(SITEMAP_REFRESHING_CRON, func() {
+		slog.Info("Refreshing sitemaps")
+		sm.ManuallyUpdate(discord)
+	})
+	if err != nil {
+		slog.Error("Error adding cron job:", "err", err)
+		return
+	}
 
 	// Discordセッションの開始
 	slog.Info("Opening discord connection")
