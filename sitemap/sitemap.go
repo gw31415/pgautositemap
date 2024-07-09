@@ -187,7 +187,7 @@ func (m *smManager) createSmName(ch *discordgo.Channel) string {
 	// {絵文字}｜{🌐or🔒or🔐} {Name(複数の場合は-繋ぎ)}
 	if m.guildID == "598545479860748288" {
 		runes := []rune(ch.Name)
-		idx := slices.Index(runes, '｜')
+		idx := slices.Index(runes, '｜')+3
 		lower := ""
 		if idx != -1 || len(runes) < idx+1 {
 			lower = strings.ToLower(ch.Name)
