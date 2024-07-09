@@ -1,5 +1,8 @@
 # pgautositemap - Discord bot
 
+- [INVITE LINK](https://discord.com/oauth2/authorize?client_id=1260115842582974496&permissions=11280&integration_type=0&scope=applications.commands+bot)
+	- 現在開発者 (Ama) のみ招待できるようになっています。
+
 ## 機能
 
 - [x] サイトマップの自動生成
