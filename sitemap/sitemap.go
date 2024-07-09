@@ -45,6 +45,8 @@ type smManager struct {
 	smOldsCache []string
 	// チャンネルIDから、関連するサイトマップ名のマップ
 	id2RelatedName map[string]string
+	// サイトマップに含めないカテゴリチャンネルのID一覧
+	whiteCates []string
 }
 
 func (m *smManager) Handler(s *discordgo.Session, target []string) {
@@ -173,11 +175,12 @@ func (a *action) do(s *discordgo.Session, guildID string, sitemapCategoryID stri
 }
 
 // コースマネージャを生成
-func NewSitemapManager(guildID, sitemapCategoryID string) SitemapManager {
+func NewSitemapManager(guildID, sitemapCategoryID string, whiteCates []string) SitemapManager {
 	return &smManager{
 		guildID:           guildID,
 		sitemapCategoryID: sitemapCategoryID,
 		id2RelatedName:    make(map[string]string),
+		whiteCates: 	  whiteCates,
 	}
 }
 
@@ -262,7 +265,7 @@ func (m *smManager) createSitemaps(s *discordgo.Session, targets []string) {
 		} else if ch.ParentID == m.sitemapCategoryID {
 			smOlds = append(smOlds, ch)
 			m.smOldsCache = append(m.smOldsCache, ch.ID)
-		} else if ch.Type == discordgo.ChannelTypeGuildCategory {
+		} else if ch.Type == discordgo.ChannelTypeGuildCategory && !slices.Contains(m.whiteCates, ch.ID) {
 			cateChs = append(cateChs, ch)
 		}
 	}

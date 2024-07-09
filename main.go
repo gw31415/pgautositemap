@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
@@ -26,6 +27,9 @@ var (
 
 	// 差分だけでなく、定期的にサイトマップを強制更新するためのcron設定
 	SITEMAP_REFRESHING_CRON = os.Getenv("SITEMAP_REFRESHING_CRON")
+
+	// 無視するカテゴリチャンネルのID, カンマ区切り
+	SITEMAP_IGNORE_CATEGORY_CHANNEL = strings.Split(os.Getenv("SITEMAP_IGNORE_CATEGORY_CHANNEL"), ",")
 )
 
 func main() {
@@ -68,7 +72,7 @@ func main() {
 	})
 
 	// サイトマップマネージャーの初期化
-	sm := sitemap.NewSitemapManager(GUILD_ID, SITEMAP_CATEGORY_ID)
+	sm := sitemap.NewSitemapManager(GUILD_ID, SITEMAP_CATEGORY_ID, SITEMAP_IGNORE_CATEGORY_CHANNEL)
 	discord.AddHandler(sm.GuildCreateHandler)
 	discord.AddHandler(sm.GuildUpdateHandler)
 	discord.AddHandler(sm.ChannelCreateHandler)
