@@ -3,10 +3,10 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'pgautositemap'
-primary_region = 'nrt'
-kill_signal = 'SIGINT'
-kill_timeout = '10s'
+app = "pgautositemap"
+primary_region = "iad"
+kill_signal = "SIGINT"
+kill_timeout = "10s"
 
 [experimental]
 auto_rollback = true
@@ -17,5 +17,5 @@ auto_start_machines = true
 min_machines_running = 1
 
 [[vm]]
-size = 'shared-cpu-1x'
+size = "shared-cpu-1x"
 memory_mb = 256
